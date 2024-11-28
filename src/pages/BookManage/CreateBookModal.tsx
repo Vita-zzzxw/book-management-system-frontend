@@ -1,7 +1,8 @@
 import { Form, Input, Modal, message } from "antd";
 import { useForm } from "antd/es/form/Form";
 import { create } from "../../interfaces";
-import { CoverUpload } from "./CoverUpload";
+// import { CoverUpload } from "./CoverUpload";
+import { MaxUpload } from "./MaxUpload";
 
 interface CreateBookModalProps {
   isOpen: boolean;
@@ -71,7 +72,12 @@ export function CreateBookModal(props: CreateBookModalProps) {
           name="cover"
           rules={[{ required: true, message: "请上传图书封面!" }]}
         >
-          <CoverUpload />
+          {/* <CoverUpload /> */}
+          <MaxUpload
+            onChange={(res) => {
+              form.setFieldValue("cover", res);
+            }}
+          />
         </Form.Item>
       </Form>
     </Modal>

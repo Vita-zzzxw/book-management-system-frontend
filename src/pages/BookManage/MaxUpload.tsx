@@ -1,56 +1,64 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Button, message, Upload } from "antd";
-import type { GetProp, UploadFile, UploadProps } from "antd";
+import type { UploadFile } from "antd";
+import axios from "axios";
 
-type FileType = Parameters<GetProp<UploadProps, "beforeUpload">>[0];
-
-const App: React.FC = () => {
+interface Props {
+  onChange: (name: string) => void;
+}
+export function MaxUpload(props: Props) {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const handleUpload = () => {
-    const formData = new FormData();
-    fileList.forEach((file) => {
-      formData.append("files[]", file as FileType);
-    });
+  const handleUpload = async () => {
     setUploading(true);
-    // You can use any AJAX library you like
-    fetch("https://loaclhost:3001/max-upload", {
-      method: "POST",
-      body: formData,
-    })
-      .then((res) => res.json())
-      .then(() => {
-        setFileList([]);
-        message.success("upload successfully.");
-      })
-      .catch(() => {
-        message.error("upload failed.");
-      })
-      .finally(() => {
+    const chunkSize = 500 * 1024;
+    const file = fileList[0] as unknown as File;
+
+    const chunks = [];
+    let startPos = 0;
+    while (startPos < file?.size) {
+      const blob = new Blob([file]);
+      chunks.push(blob.slice(startPos, startPos + chunkSize));
+      startPos += chunkSize;
+    }
+
+    const random = Math.random().toString().slice(2, 8);
+
+    const tasks = [] as Promise<unknown>[];
+    chunks.map((chunk, index) => {
+      const data = new FormData();
+      data.set("name", random + file.name + "-" + index);
+      data.append("files", chunk);
+      tasks.push(axios.post("http://localhost:3001/book/maxUpload", data));
+    });
+    await Promise.all(tasks);
+    axios
+      .get("http://localhost:3001/book/merge?name=" + random + file.name)
+      .then((res) => {
+        message.success("Upload successfully");
+        props.onChange(res.data);
         setUploading(false);
       });
   };
 
-  const props: UploadProps = {
-    onRemove: (file) => {
-      const index = fileList.indexOf(file);
-      const newFileList = fileList.slice();
-      newFileList.splice(index, 1);
-      setFileList(newFileList);
-    },
-    beforeUpload: (file) => {
-      setFileList([...fileList, file]);
-
-      return false;
-    },
-    fileList,
-  };
-
   return (
     <>
-      <Upload {...props}>
+      <Upload
+        onRemove={(file) => {
+          const index = fileList.indexOf(file);
+          const newFileList = fileList.slice();
+          newFileList.splice(index, 1);
+          setFileList(newFileList);
+        }}
+        beforeUpload={(file) => {
+          setFileList([...fileList, file]);
+
+          return false;
+        }}
+        fileList={fileList}
+      >
         <Button>Select File</Button>
       </Upload>
       <Button
@@ -64,6 +72,4 @@ const App: React.FC = () => {
       </Button>
     </>
   );
-};
-
-export default App;
+}
